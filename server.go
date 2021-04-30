@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/labstack/echo/middleware"
 	"github.com/labstack/echo/v4"
 	"io"
 	"net/http"
@@ -14,10 +15,30 @@ type User struct {
 
 func main() {
 	e := echo.New()
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
+
+	g := e.Group("/admin")
+	g.Use(middleware.BasicAuth(func(username string, password string, c echo.Context) (bool, error) {
+		if username == "joe" && password == "secret" {
+			return true, nil
+		}
+		return false, nil
+	}))
+
+	track := func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			println("request to /users")
+			return next(c)
+		}
+	}
+
+	e.GET("/users", func(c echo.Context) error {
+		return c.String(http.StatusOK, "/users")
+	}, track)
 	e.GET("/", func(c echo.Context) error {
 		return c.String(http.StatusOK, "Hello, World!!1")
 	})
-
 	e.GET("/users/:id", getUser)
 	e.POST("/users", func(c echo.Context) error {
 		u := new(User)
